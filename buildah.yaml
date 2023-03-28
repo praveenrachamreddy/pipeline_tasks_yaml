@@ -1,0 +1,196 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: >
+      {"apiVersion":"tekton.dev/v1beta1","kind":"ClusterTask","metadata":{"annotations":{"tekton.dev/pipelines.minVersion":"0.19","tekton.dev/tags":"image-build"},"labels":{"app.kubernetes.io/version":"0.1","operator.tekton.dev/provider-type":"redhat"},"name":"buildah","namespace":"openshift-pipelines","ownerReferences":[{"apiVersion":"operator.tekton.dev/v1alpha1","blockOwnerDeletion":true,"controller":true,"kind":"TektonAddon","name":"addon","uid":"3758c7d6-4c11-4192-855b-29fd01e824dc"}]},"spec":{"description":"Buildah
+      task builds source into a container image and then pushes it to a
+      container registry.\nBuildah Task builds source into a container image
+      using Project Atomic's Buildah build tool.It uses Buildah's support for
+      building from Dockerfiles, using its buildah bud command.This command
+      executes the directives in the Dockerfile to assemble a container image,
+      then pushes that image to a container
+      registry.","params":[{"description":"Reference of the image buildah will
+      produce.","name":"IMAGE"},{"default":"registry.redhat.io/rhel8/buildah@sha256:6a68ece207bc5fd8db2dd5cc2d0b53136236fb5178eb5b71eebe5d07a3c33d13","description":"The
+      location of the buildah builder
+      image.","name":"BUILDER_IMAGE"},{"default":"vfs","description":"Set
+      buildah storage
+      driver","name":"STORAGE_DRIVER"},{"default":"./Dockerfile","description":"Path
+      to the Dockerfile to
+      build.","name":"DOCKERFILE"},{"default":".","description":"Path to the
+      directory to use as
+      context.","name":"CONTEXT"},{"default":"true","description":"Verify the
+      TLS on the registry endpoint (for push/pull to a non-TLS
+      registry)","name":"TLSVERIFY"},{"default":"oci","description":"The format
+      of the built container, oci or
+      docker","name":"FORMAT"},{"default":"","description":"Extra parameters
+      passed for the build command when building
+      images.","name":"BUILD_EXTRA_ARGS"},{"default":"","description":"Extra
+      parameters passed for the push command when pushing
+      images.","name":"PUSH_EXTRA_ARGS","type":"string"}],"results":[{"description":"Digest
+      of the image just
+      built.","name":"IMAGE_DIGEST"}],"steps":[{"image":"$(params.BUILDER_IMAGE)","name":"build","script":"buildah
+      --storage-driver=$(params.STORAGE_DRIVER) bud \\\n 
+      $(params.BUILD_EXTRA_ARGS) --format=$(params.FORMAT) \\\n 
+      --tls-verify=$(params.TLSVERIFY) --no-cache \\\n  -f $(params.DOCKERFILE)
+      -t $(params.IMAGE)
+      $(params.CONTEXT)\n","volumeMounts":[{"mountPath":"/var/lib/containers","name":"varlibcontainers"}],"workingDir":"$(workspaces.source.path)"},{"image":"$(params.BUILDER_IMAGE)","name":"push","script":"buildah
+      --storage-driver=$(params.STORAGE_DRIVER) push \\\n 
+      $(params.PUSH_EXTRA_ARGS) --tls-verify=$(params.TLSVERIFY) \\\n 
+      --digestfile $(workspaces.source.path)/image-digest $(params.IMAGE) \\\n 
+      docker://$(params.IMAGE)\n","volumeMounts":[{"mountPath":"/var/lib/containers","name":"varlibcontainers"}],"workingDir":"$(workspaces.source.path)"},{"image":"$(params.BUILDER_IMAGE)","name":"digest-to-results","script":"cat
+      $(workspaces.source.path)/image-digest | tee
+      /tekton/results/IMAGE_DIGEST"}],"volumes":[{"emptyDir":{},"name":"varlibcontainers"}],"workspaces":[{"name":"source"}]}}
+    tekton.dev/pipelines.minVersion: '0.19'
+    tekton.dev/tags: image-build
+  selfLink: /apis/tekton.dev/v1beta1/namespaces/sumit/tasks/buildah
+  resourceVersion: '2987636'
+  name: buildah
+  uid: e7c0ab53-eff4-42ed-9908-880ec0b2e500
+  creationTimestamp: '2023-03-26T12:31:30Z'
+  generation: 2
+  managedFields:
+    - apiVersion: tekton.dev/v1beta1
+      fieldsType: FieldsV1
+      fieldsV1:
+        'f:metadata':
+          'f:annotations':
+            .: {}
+            'f:kubectl.kubernetes.io/last-applied-configuration': {}
+            'f:tekton.dev/pipelines.minVersion': {}
+            'f:tekton.dev/tags': {}
+          'f:labels':
+            .: {}
+            'f:app.kubernetes.io/version': {}
+            'f:operator.tekton.dev/provider-type': {}
+          'f:ownerReferences':
+            .: {}
+            'k:{"uid":"3758c7d6-4c11-4192-855b-29fd01e824dc"}':
+              .: {}
+              'f:apiVersion': {}
+              'f:blockOwnerDeletion': {}
+              'f:controller': {}
+              'f:kind': {}
+              'f:name': {}
+              'f:uid': {}
+        'f:spec':
+          .: {}
+          'f:description': {}
+          'f:params': {}
+          'f:results': {}
+          'f:steps': {}
+          'f:volumes': {}
+          'f:workspaces': {}
+      manager: Mozilla
+      operation: Update
+      time: '2023-03-26T12:31:30Z'
+  namespace: sumit
+  ownerReferences:
+    - apiVersion: operator.tekton.dev/v1alpha1
+      blockOwnerDeletion: true
+      controller: true
+      kind: TektonAddon
+      name: addon
+      uid: 3758c7d6-4c11-4192-855b-29fd01e824dc
+  labels:
+    app.kubernetes.io/version: '0.1'
+    operator.tekton.dev/provider-type: redhat
+spec:
+  description: >-
+    Buildah task builds source into a container image and then pushes it to a
+    container registry.
+
+    Buildah Task builds source into a container image using Project Atomic's
+    Buildah build tool.It uses Buildah's support for building from Dockerfiles,
+    using its buildah bud command.This command executes the directives in the
+    Dockerfile to assemble a container image, then pushes that image to a
+    container registry.
+  params:
+    - description: Reference of the image buildah will produce.
+      name: IMAGE
+      type: string
+    - default: >-
+        registry.redhat.io/rhel8/buildah@sha256:6a68ece207bc5fd8db2dd5cc2d0b53136236fb5178eb5b71eebe5d07a3c33d13
+      description: The location of the buildah builder image.
+      name: BUILDER_IMAGE
+      type: string
+    - default: vfs
+      description: Set buildah storage driver
+      name: STORAGE_DRIVER
+      type: string
+    - default: ./Dockerfile
+      description: Path to the Dockerfile to build.
+      name: DOCKERFILE
+      type: string
+    - default: .
+      description: Path to the directory to use as context.
+      name: CONTEXT
+      type: string
+    - default: 'true'
+      description: >-
+        Verify the TLS on the registry endpoint (for push/pull to a non-TLS
+        registry)
+      name: TLSVERIFY
+      type: string
+    - default: oci
+      description: 'The format of the built container, oci or docker'
+      name: FORMAT
+      type: string
+    - default: ''
+      description: Extra parameters passed for the build command when building images.
+      name: BUILD_EXTRA_ARGS
+      type: string
+    - default: ''
+      description: Extra parameters passed for the push command when pushing images.
+      name: PUSH_EXTRA_ARGS
+      type: string
+    - default: 1.1-SNAPSHOT
+      name: tag-dev
+      type: string
+    - default: Test
+      name: tag-test
+      type: string
+  results:
+    - description: Digest of the image just built.
+      name: IMAGE_DIGEST
+  steps:
+    - image: $(params.BUILDER_IMAGE)
+      name: build
+      resources: {}
+      script: |
+        buildah --storage-driver=$(params.STORAGE_DRIVER) bud \
+          $(params.BUILD_EXTRA_ARGS) --format=$(params.FORMAT) \
+          --tls-verify=$(params.TLSVERIFY) --no-cache \
+          -f $(params.DOCKERFILE) -t $(params.IMAGE) $(params.CONTEXT)
+      volumeMounts:
+        - mountPath: /var/lib/containers
+          name: varlibcontainers
+      workingDir: $(workspaces.source.path)
+    - image: $(params.BUILDER_IMAGE)
+      name: push
+      resources: {}
+      script: |
+        buildah --storage-driver=$(params.STORAGE_DRIVER) push \
+          $(params.PUSH_EXTRA_ARGS) --tls-verify=$(params.TLSVERIFY) \
+          --digestfile $(workspaces.source.path)/image-digest $(params.IMAGE) \
+          docker://$(params.IMAGE):$(params.tag-dev)
+
+        buildah --storage-driver=$(params.STORAGE_DRIVER) push \
+          $(params.PUSH_EXTRA_ARGS) --tls-verify=$(params.TLSVERIFY) \
+          --digestfile $(workspaces.source.path)/image-digest $(params.IMAGE) \
+          docker://$(params.IMAGE):$(params.tag-test)
+      volumeMounts:
+        - mountPath: /var/lib/containers
+          name: varlibcontainers
+      workingDir: $(workspaces.source.path)
+    - image: $(params.BUILDER_IMAGE)
+      name: digest-to-results
+      resources: {}
+      script: >-
+        cat $(workspaces.source.path)/image-digest | tee
+        /tekton/results/IMAGE_DIGEST
+  volumes:
+    - emptyDir: {}
+      name: varlibcontainers
+  workspaces:
+    - name: source

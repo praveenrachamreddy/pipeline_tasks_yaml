@@ -1,0 +1,116 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: git-kustomize
+  namespace: sumit
+spec:
+  description: This Task can be used to update image digest in a Git repo using kustomize
+  params:
+    - default: 'https://github.com/sumitbiswal98/maven.git'
+      name: GIT_REPOSITORY
+      type: string
+    - default: 'quay.io/sumitbiswal/maven:1.1-SNAPSHOT'
+      name: dev_image
+      type: string
+    - default: 'quay.io/sumitbiswal/maven:Test'
+      name: test_image
+      type: string
+    - default: k8s
+      name: KUSTOMIZATION_PATH
+      type: string
+    - default: test
+      name: branch
+      type: string
+    - default: $(cat $(workspaces.source.path)/image-digest)
+      name: IMAGE_DIGEST
+      type: string
+  results:
+    - description: The commit SHA
+      name: commit
+  steps:
+    - image: 'docker.io/alpine/git:v2.26.2'
+      name: git-clone
+      resources: {}
+      script: |
+        rm -rf dev
+
+        rm -rf test
+
+        git clone $(params.GIT_REPOSITORY) dev
+
+        cd
+
+        pwd
+
+        git clone -b $(params.branch) $(params.GIT_REPOSITORY) test
+      workingDir: $(workspaces.source.path)
+    - image: 'quay.io/wpernath/kustomize-ubi:latest'
+      name: update-digest
+      resources: {}
+      script: >
+        #!/usr/bin/env bash
+
+
+        cd dev/$(params.KUSTOMIZATION_PATH)
+
+        # cat $(workspaces.source.path)/image-digest | tee #
+        /tekton/results/IMAGE_DIGEST
+
+        # i=$(tasks.build-image.results.IMAGE_DIGEST)
+
+
+        kustomize edit set image
+        $(params.dev_image)=$(params.dev_image)@$(params.IMAGE_DIGEST)
+
+        cd 
+
+        cd test/$(params.KUSTOMIZATION_PATH)
+
+        kustomize edit set image
+        $(params.test_image)=$(params.test_image)@$(params.IMAGE_DIGEST)
+      workingDir: $(workspaces.source.path)
+    - image: 'docker.io/alpine/git:v2.26.2'
+      name: git-commit
+      resources: {}
+      script: |
+        pwd
+
+        cd dev
+
+        git config --global user.email "sumitbiswal98@gmail.com"
+
+        git config --global user.name "sumitbiswal98"
+
+        git add $(params.KUSTOMIZATION_PATH)/kustomization.yaml 
+
+        git commit -m "[ci] Image digest updated"
+
+        git push origin main
+
+
+
+        cd
+
+        pwd
+
+        cd test
+
+        git checkout test
+
+        git add $(params.KUSTOMIZATION_PATH)/kustomization.yaml 
+
+        git commit -m "[ci] Image digest updated"
+
+        git push origin test
+
+        RESULT_SHA="$(git rev-parse main | tr -d '\n')"
+        EXIT_CODE="$?"
+        if [ "$EXIT_CODE" != 0 ]
+        then
+          exit $EXIT_CODE
+        fi
+        echo -n "$RESULT_SHA" > $(results.commit.path)
+      workingDir: $(workspaces.source.path)
+  workspaces:
+    - description: The workspace consisting of maven project.
+      name: source
