@@ -1,0 +1,80 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: send-qa-approval-email
+spec:
+  inputs:
+    params:
+      - name: NAME
+        type: string
+      - name: BUILD_URL
+        type: string
+      - name: useremail
+        type: string
+      - name: mailToRecipientsqa
+        type: string
+  steps:
+    - name: send-email
+      image: python:3.9
+      command:
+        - /bin/sh
+        - -c
+      args:
+        - |
+          pip install requests
+          import requests
+          from email.mime.text import MIMEText
+          
+          email_from = params.useremail
+          email_to = params.mailToRecipientsqa
+          email_subject = "[Jenkins] Approval for QA deployment"
+          email_body = f'''Dear Team,<br><br>Deployment of {params.NAME} application in the DEV environment is completed. To approve to QA environment, Kindly go to console output using this URL {params.BUILD_URL} input to approve or Reject.<br><br><br>Thanks & Regards,<br>OCP-Team<br>'''
+          message = MIMEText(email_body, 'html')
+          message['From'] = email_from
+          message['To'] = email_to
+          message['Subject'] = email_subject
+          
+          try:
+            response = requests.post(
+              url="https://api.sendgrid.com/v3/mail/send",
+              headers={
+                "Authorization": "Bearer $SENDGRID_API_KEY",
+                "Content-Type": "application/json"
+              },
+              json={
+                "personalizations": [
+                  {
+                    "to": [
+                      {
+                        "email": email_to
+                      }
+                    ]
+                  }
+                ],
+                "from": {
+                  "email": email_from
+                },
+                "subject": email_subject,
+                "content": [
+                  {
+                    "type": "text/html",
+                    "value": email_body
+                  }
+                ]
+              }
+            )
+            if response.status_code != 202:
+              raise Exception("Failed to send email")
+          except:
+            raise Exception("Failed to send email")
+    - name: approve-deployment
+      image: ubuntu:latest
+      command:
+        - /bin/sh
+        - -c
+      args:
+        - |
+          echo "Waiting for approval..."
+          # Replace the following line with a command that waits for the user's approval
+          sleep 60
+          echo "Not approved for QA Deployment"
