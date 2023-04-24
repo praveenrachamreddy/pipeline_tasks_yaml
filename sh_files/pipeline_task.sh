@@ -42,3 +42,10 @@ kubectl apply -f https://github.com/sumitbiswal98/pipeline_tasks_yaml/raw/main/s
 
 #pvc
 kubectl apply -f https://github.com/sumitbiswal98/pipeline_tasks_yaml/raw/main/pvc/pvc.yaml
+
+#Templates-nexus
+oc apply -f https://github.com/sumitbiswal98/pipeline_tasks_yaml/raw/main/Templates/nexus.yaml
+
+#Templates-sonarqube
+oc apply -f https://github.com/sumitbiswal98/pipeline_tasks_yaml/raw/main/Templates/sonarqube.yaml
+
