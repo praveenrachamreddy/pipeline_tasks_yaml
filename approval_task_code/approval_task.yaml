@@ -1,0 +1,100 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: send-email-approval
+  namespace: sumit
+
+spec:
+  params:
+    - description: The URL of the HTML form to be approved
+      name: html_form_url
+      type: string
+    - description: The SMTP server to use to send the email
+      name: smtp_server
+      type: string
+    - description: The port to use to connect to the SMTP server
+      name: smtp_port
+      type: string
+    - description: The username to use to authenticate with the SMTP server
+      name: smtp_username
+      type: string
+    - description: The password to use to authenticate with the SMTP server
+      name: smtp_password
+      type: string
+    - description: The email address of the sender
+      name: sender_email
+      type: string
+    - description: The email address of the approver
+      name: recipient_email
+      type: string
+  steps:
+    - command:
+        - sh
+        - '-c'
+        - >
+          echo "From: ${sender_email}\nTo: ${recipient_email}\nSubject: Please
+          approve ${html_form_url}\n\nHello,\n\nPlease follow this link to
+          approve the form: ${html_form_url}" | \
+            python -c 'import smtplib; \
+                       server = smtplib.SMTP("${smtp_server}", ${smtp_port}); \
+                       server.starttls(); \
+                       server.login("${smtp_username}", "${smtp_password}"); \
+                       server.sendmail("${sender_email}", "${recipient_email}", "${mail_content}"); \
+                       server.quit();'
+      env:
+        - name: mail_content
+          value: |-
+            From: ${sender_email}
+            To: ${recipient_email}
+            Subject: Please approve ${html_form_url}
+
+            Hello,
+
+            Please follow this link to approve the form: ${html_form_url}
+        - name: smtp_server
+          value: $(params.smtp_server)
+        - name: smtp_port
+          value: $(params.smtp_port)
+        - name: smtp_username
+          value: $(params.smtp_username)
+        - name: smtp_password
+          value: $(params.smtp_password)
+        - name: sender_email
+          value: $(params.sender_email)
+        - name: recipient_email
+          value: $(params.recipient_email)
+        - name: html_form_url
+          value: $(params.html_form_url)
+      image: 'python:3.8'
+      name: send-email
+      resources: {}
+    - command:
+        - sh
+        - '-c'
+        - |
+          while true; do
+            response=$(curl -sS -o /dev/null -w "%{http_code}" ${html_form_url})
+            if [ "$response" -eq 200 ]; then
+              break
+            fi
+            sleep 10
+          done
+          data=$(cat /var/log/myapp/myapp.log)
+          is_approved=$(echo $data | jq -r '.approval')
+          if [ "$is_approved" = "true" ]; then
+            echo "Form approved."
+            # echo "approval_result=true" >> /var/log/myapp/approval_result
+          else
+            echo "Form not approved."
+            # echo "approval_result=false" >> /var/log/myapp/approval_result
+            exit 1
+          fi
+          rm -rf /var/log/myapp/myapp.log
+      image: 'curlimages/curl:7.79.1'
+      name: await-approval
+      resources: {}
+      volumeMounts:
+        - mountPath: /var/log/myapp
+          name: log-volume
+  workspaces:
+    - name: approval
