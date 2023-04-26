@@ -32,7 +32,7 @@ class FormRequestHandler(http.server.SimpleHTTPRequestHandler):
         if os.path.exists(log_file_path):
             with open(log_file_path, 'r') as f:
                 log_data = f.read()
-            if json_string in log_data:
+            if log_data.strip() != "":
                 self.send_error(400, "Form already submitted")
                 return
 
@@ -48,10 +48,13 @@ class FormRequestHandler(http.server.SimpleHTTPRequestHandler):
         self.send_response(200)
         self.send_header('Content-type', 'text/html')
         self.end_headers()
-        self.wfile.write(b'<html><body><span style="color:green">Submitted successfully.</span></body></html>')
+
+        # Print the "Submitted successfully" message in the middle of the screen and make it bigger
+        message = '<html><body><div style="position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); font-size: 2em;"><span style="color:green">Submitted successfully.</span></div></body></html>'
+        self.wfile.write(message.encode())
 
         # Add the submitted form to the set
-        FormRequestHandler.submitted_forms.add(json_string)
+        # FormRequestHandler.submitted_forms.add(json_string)
 
         # Log the JSON string to the file
         with open(log_file_path, 'a') as f:
