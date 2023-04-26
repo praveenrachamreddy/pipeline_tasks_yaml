@@ -1,100 +1,112 @@
 apiVersion: tekton.dev/v1beta1
 kind: Task
 metadata:
-  name: send-email-approval
-  namespace: sumit
-
+  name: final-approval-task
 spec:
   params:
-    - description: The URL of the HTML form to be approved
-      name: html_form_url
+    - default: 'http://approval-sumit.apps.cluster-2tmjr.2tmjr.sandbox1798.opentlc.com/'
+      description: Link to the form for approval
+      name: form-link
       type: string
-    - description: The SMTP server to use to send the email
-      name: smtp_server
+    - default: server-secret
+      description: 'secret name for SMTP server information (url, port, password)'
+      name: server
       type: string
-    - description: The port to use to connect to the SMTP server
-      name: smtp_port
+    - default: imssdevops99@gmail.com
+      description: sender email address
+      name: sender
       type: string
-    - description: The username to use to authenticate with the SMTP server
-      name: smtp_username
-      type: string
-    - description: The password to use to authenticate with the SMTP server
-      name: smtp_password
-      type: string
-    - description: The email address of the sender
-      name: sender_email
-      type: string
-    - description: The email address of the approver
-      name: recipient_email
+    - default: sumitbiswal98@gmail.com
+      description: recipient email addresses (space delimited list)
+      name: recipients
       type: string
   steps:
-    - command:
-        - sh
-        - '-c'
-        - >
-          echo "From: ${sender_email}\nTo: ${recipient_email}\nSubject: Please
-          approve ${html_form_url}\n\nHello,\n\nPlease follow this link to
-          approve the form: ${html_form_url}" | \
-            python -c 'import smtplib; \
-                       server = smtplib.SMTP("${smtp_server}", ${smtp_port}); \
-                       server.starttls(); \
-                       server.login("${smtp_username}", "${smtp_password}"); \
-                       server.sendmail("${sender_email}", "${recipient_email}", "${mail_content}"); \
-                       server.quit();'
-      env:
-        - name: mail_content
-          value: |-
-            From: ${sender_email}
-            To: ${recipient_email}
-            Subject: Please approve ${html_form_url}
-
-            Hello,
-
-            Please follow this link to approve the form: ${html_form_url}
-        - name: smtp_server
-          value: $(params.smtp_server)
-        - name: smtp_port
-          value: $(params.smtp_port)
-        - name: smtp_username
-          value: $(params.smtp_username)
-        - name: smtp_password
-          value: $(params.smtp_password)
-        - name: sender_email
-          value: $(params.sender_email)
-        - name: recipient_email
-          value: $(params.recipient_email)
-        - name: html_form_url
-          value: $(params.html_form_url)
-      image: 'python:3.8'
-      name: send-email
+    - env:
+        - name: USER
+          valueFrom:
+            secretKeyRef:
+              key: user
+              name: $(params.server)
+        - name: PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: password
+              name: $(params.server)
+        - name: TLS
+          valueFrom:
+            secretKeyRef:
+              key: tls
+              name: $(params.server)
+        - name: SERVER
+          valueFrom:
+            secretKeyRef:
+              key: url
+              name: $(params.server)
+        - name: PORT
+          valueFrom:
+            secretKeyRef:
+              key: port
+              name: $(params.server)
+      image: >-
+        docker.io/library/python:3.8-alpine@sha256:e11bbd37d4371894e954421b85dbe8dd4eb7198d7cb4ed144ab529f19f57c3f1
+      name: send
       resources: {}
-    - command:
-        - sh
-        - '-c'
+      script: |
+        #!/usr/bin/env python3
+        import os, smtplib, mimetypes, time
+        from email.message import EmailMessage
+
+        port = os.getenv('PORT') 
+        smtp_server = os.getenv('SERVER') 
+        sender_email = "$(params.sender)"
+        receiver_emails = "$(params.recipients)"
+        user = os.getenv('USER') 
+        password = os.getenv('PASSWORD') 
+        # tls = os.getenv('TLS')
+
+
+        # Set up the email message
+        msg = EmailMessage()
+        msg['Subject'] = 'Please approve this form'
+        msg['From'] = sender_email
+        msg['To'] = receiver_emails
+        msg.set_content('Please approve this task: $(params.form-link)')
+
+        # Connect to the SMTP server and send the email
+        def send_mail_smtp(mail, port, url, username, password):
+            s = smtplib.SMTP(url, port)
+            s.starttls()
+            s.login(username, password)
+            s.send_message(mail)
+            s.quit()
+
+        send_mail_smtp(msg, port, smtp_server, user,
+        password)
+
+        time.sleep(120)
+    - args:
         - |
           while true; do
-            response=$(curl -sS -o /dev/null -w "%{http_code}" ${html_form_url})
-            if [ "$response" -eq 200 ]; then
-              break
+            if grep -q '"approval": "true"' /var/log/myapp/myapp.log; then
+              echo "Form approved."
+              exit 0
+            elif grep -q '"approval": "false"' /var/log/myapp/myapp.log; then
+              echo "Form not approved."
+              exit 1
             fi
-            sleep 10
+            sleep 2
           done
-          data=$(cat /var/log/myapp/myapp.log)
-          is_approved=$(echo $data | jq -r '.approval')
-          if [ "$is_approved" = "true" ]; then
-            echo "Form approved."
-            # echo "approval_result=true" >> /var/log/myapp/approval_result
-          else
-            echo "Form not approved."
-            # echo "approval_result=false" >> /var/log/myapp/approval_result
-            exit 1
-          fi
-          rm -rf /var/log/myapp/myapp.log
-      image: 'curlimages/curl:7.79.1'
-      name: await-approval
+          sudo rm -rf /var/log/myapp/myapp.log
+      command:
+        - sh
+        - '-c'
+      image: 'python:3.8'
+      name: check-log-file
       resources: {}
       volumeMounts:
         - mountPath: /var/log/myapp
           name: log-volume
-  workspaces:
-    - name: approval
+  volumes:
+    - name: log-volume
+      persistentVolumeClaim:
+        claimName: approval
