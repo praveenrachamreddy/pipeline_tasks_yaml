@@ -1,0 +1,80 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: approval
+  labels:
+    app: approval
+spec:
+  securityContext:
+    runAsUser: 1000
+    runAsGroup: 3000
+    fsGroup: 2000
+  replicas: 1
+  selector:
+    matchLabels:
+      app: approval
+  template:
+    metadata:
+      labels:
+        app: approval
+    spec:
+      imagePullSecrets:
+        - name: quay
+      containers:
+        - name: backend
+          image: python:3.9
+          command: ["python", "/app/backend.py"]
+          volumeMounts:
+            - name: backend-config
+              mountPath: /app/backend.py
+              subPath: backend.py
+            - name: frontend-config
+              mountPath: /index.html
+              subPath: index.html
+            - name: logs-volume
+              mountPath: /logs
+          ports:
+            - containerPort: 8080
+      volumes:
+        - name: backend-config
+          configMap:
+            name: backend-configmap
+            items:
+              - key: backend.py
+                path: backend.py
+        - name: frontend-config
+          configMap:
+            name: frontend-configmap
+            items:
+              - key: index.html
+                path: index.html
+        - name: logs-volume
+          persistentVolumeClaim:
+            claimName: approval
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: approval  # update the name of the service
+spec:
+  selector:
+    app: approval  # update the selector for the service
+  ports:
+    - name: http
+      protocol: TCP
+      port: 8080
+      targetPort: 8080
+  type: ClusterIP
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: approval
+spec:
+  to:
+    kind: Service
+    name: approval
+    weight: 100
+  port:
+    targetPort: http
+  wildcardPolicy: None
