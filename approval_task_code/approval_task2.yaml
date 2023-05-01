@@ -1,0 +1,122 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: final-approval-task
+spec:
+  params:
+    - default: 'http://approval-sumit.apps.cluster-vsrjf.vsrjf.sandbox2991.opentlc.com'
+      description: Link to the form for approval
+      name: form-link
+      type: string
+    - default: server-secret
+      description: 'secret name for SMTP server information (url, port, password)'
+      name: server
+      type: string
+    - default: imssdevops99@gmail.com
+      description: sender email address
+      name: sender
+      type: string
+    - default: sumitbiswal98@gmail.com
+      description: recipient email addresses (space delimited list)
+      name: recipients
+      type: string
+  steps:
+    - env:
+        - name: USER
+          valueFrom:
+            secretKeyRef:
+              key: user
+              name: $(params.server)
+        - name: PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: password
+              name: $(params.server)
+        - name: TLS
+          valueFrom:
+            secretKeyRef:
+              key: tls
+              name: $(params.server)
+        - name: SERVER
+          valueFrom:
+            secretKeyRef:
+              key: url
+              name: $(params.server)
+        - name: PORT
+          valueFrom:
+            secretKeyRef:
+              key: port
+              name: $(params.server)
+      image: >-
+        docker.io/library/python:3.8-alpine@sha256:e11bbd37d4371894e954421b85dbe8dd4eb7198d7cb4ed144ab529f19f57c3f1
+      name: send
+      resources: {}
+      script: |
+        #!/usr/bin/env python3
+        import os, smtplib, mimetypes, time
+        from email.message import EmailMessage
+
+        port = os.getenv('PORT') 
+        smtp_server = os.getenv('SERVER') 
+        sender_email = "$(params.sender)"
+        receiver_emails = "$(params.recipients)"
+        user = os.getenv('USER') 
+        password = os.getenv('PASSWORD') 
+        # tls = os.getenv('TLS')
+
+
+        # Set up the email message
+        msg = EmailMessage()
+        msg['Subject'] = 'Please approve this form'
+        msg['From'] = sender_email
+        msg['To'] = receiver_emails
+        msg.set_content('Please approve this task: $(params.form-link)')
+
+        # Connect to the SMTP server and send the email
+        def send_mail_smtp(mail, port, url, username, password):
+            s = smtplib.SMTP(url, port)
+            s.starttls()
+            s.login(username, password)
+            s.send_message(mail)
+            s.quit()
+
+        send_mail_smtp(msg, port, smtp_server, user,
+        password)
+    - args:
+        - |
+
+          start_time=$(date +%s)  # Get the current timestamp in seconds
+
+          while true; do
+            current_time=$(date +%s)  # Get the current timestamp in seconds
+            elapsed_time=$((current_time - start_time))  # Calculate the elapsed time in seconds
+
+            if [ -f /logs/myapp.log ]; then
+              echo "myapp.log file exists."
+              if grep -q '"approval": "true"' /logs/myapp.log; then
+                echo "Approved..."
+                exit 0
+              elif grep -q '"approval": "false"' /logs/myapp.log; then
+                echo "Rejected..."
+                exit 1
+              fi
+            fi
+
+            if [ $elapsed_time -ge 120 ]; then  # Check if 2 minutes (120 seconds) have elapsed
+              echo "Timeout: myapp.log file not found or approval not determined within 2 minutes."
+              exit 1
+            fi
+
+            sleep 2
+        - sh
+        - '-c'
+      image: 'python:3.8'
+      name: check-log-file
+      resources: {}
+      volumeMounts:
+        - mountPath: /logs
+          name: logs-volume
+  volumes:
+    - name: logs-volume
+      persistentVolumeClaim:
+        claimName: approval
