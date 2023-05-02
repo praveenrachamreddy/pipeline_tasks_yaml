@@ -17,7 +17,7 @@ oc apply -f $TASK_APPROVAL
 # Set the name and size of the PVC
 
 #secret
-kubectl apply -f https://github.com/sumitbiswal98/pipeline_tasks_yaml/raw/main/secret/secret-mail.yaml 
+kubectl apply -f https://github.com/sumitbiswal98/pipeline_tasks_yaml/raw/main/secret/server-secret.yaml 
 
 #pvc
 kubectl apply -f https://github.com/sumitbiswal98/pipeline_tasks_yaml/raw/main/pvc/pvc.yaml
