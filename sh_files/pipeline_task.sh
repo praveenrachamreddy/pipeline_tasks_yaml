@@ -11,6 +11,7 @@ NEXUS_TEMPLATE="https://github.com/sumitbiswal98/pipeline_tasks_yaml/raw/main/Te
 SONARQUBE_TEMPLATE="https://github.com/sumitbiswal98/pipeline_tasks_yaml/raw/main/Templates/sonarqube.yaml"
 PVC="https://github.com/sumitbiswal98/pipeline_tasks_yaml/raw/main/pvc/pvc.yaml"
 SECRET="https://github.com/sumitbiswal98/pipeline_tasks_yaml/raw/main/secret/server-secret.yaml"
+APPROVAL_DEPLOYMENT="https://github.com/sumitbiswal98/pipeline_tasks_yaml/raw/main/approval_task_code/dep_by_cm.yaml"
 
 
 # Create pipeline and tasks
@@ -24,3 +25,4 @@ oc apply -f $NEXUS_TEMPLATE
 oc apply -f $SONARQUBE_TEMPLATE
 oc apply -f $PVC
 oc apply -f $SECRET
+oc apply -f $APPROVAL_DEPLOYMENT
