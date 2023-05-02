@@ -1,7 +1,7 @@
 apiVersion: tekton.dev/v1beta1
 kind: Task
 metadata:
-  name: final-approval-task
+  name: approval-task
 spec:
   params:
     - default: 'http://approval-sumit.apps.cluster-vsrjf.vsrjf.sandbox2991.opentlc.com/'
