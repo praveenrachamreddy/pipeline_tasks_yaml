@@ -2,9 +2,10 @@ apiVersion: tekton.dev/v1beta1
 kind: Task
 metadata:
   name: approval-task
+  namespace: sumit
 spec:
   params:
-    - default: 'http://approval-sumit.apps.cluster-vsrjf.vsrjf.sandbox2991.opentlc.com/'
+    - default: 'http://approval-sumit.apps.cluster-5pcchgtrk.5pcck.sandbox1921.opentlc.com'
       description: Link to the form for approval
       name: form-link
       type: string
@@ -73,21 +74,42 @@ spec:
 
         password = os.getenv('PASSWORD') 
 
-        pipeline_run_name = os.getenv('PIPELINE_RUN_NAME')
-
 
         # Set up the email message
 
         msg = EmailMessage()
 
-        msg['Subject'] = 'Please approve this form'
+        msg['Subject'] = 'Deployment Approval Request'
 
         msg['From'] = sender_email
 
         msg['To'] = receiver_emails
 
-        msg.set_content('Please approve $(params.pipeline) :
-        $(params.form-link)')
+        form_link = "$(params.form-link)"
+
+        pipeline_name = "$(params.pipeline)"
+
+        # Generate HTML code for the button 
+
+        button_html = f'<a href="{form_link}" target="_blank"><button
+        style="padding: 10px 20px; background-color: #4CAF50; color: white;
+        border: none; cursor: pointer;">Click Here</button></a>'
+
+        html_content = f''' <html>
+            <body>
+                <p>Dear Team,</p>
+                <br>
+                <p>Deployment of {pipeline_name} application in the DEV environment is completed.</p>
+                <p>To approve to QA environment, kindly click this :</p>
+                <p>{button_html}</p>
+                <br>
+                <br>
+                <p>Thanks & Regards,</p>
+                <p>OCP-Team</p>
+            </body>
+        </html> '''
+
+        msg.add_alternative(html_content, subtype='html')
 
 
         # Connect to the SMTP server and send the email
@@ -137,4 +159,4 @@ spec:
   volumes:
     - name: logs-volume
       persistentVolumeClaim:
-        claimName: approval
+        claimName: pvc
